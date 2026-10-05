@@ -43,12 +43,34 @@ passo  2: atual=(1, 2)  fronteira= 2  visitados= 2
 Achou o objetivo em 26 passos (caminho com 12 células).
 ```
 
-## Rodando a visualização gráfica
+## Instalação (com venv)
 
-Requer [pygame](https://www.pygame.org/):
+Requer Python 3.10+ e [pygame](https://www.pygame.org/) (ver [`requirements.txt`](requirements.txt)).
 
 ```bash
-pip install pygame
+# 1. Criar o ambiente virtual (só na primeira vez)
+python3 -m venv .venv
+
+# 2. Ativar o venv
+# Linux / macOS:
+source .venv/bin/activate
+# Windows (PowerShell):
+# .venv\Scripts\Activate.ps1
+# Windows (cmd):
+# .venv\Scripts\activate.bat
+
+# 3. Instalar as dependências
+pip install -r requirements.txt
+```
+
+> O prompt do terminal mostra `(.venv)` quando o venv está ativo.
+> Para sair do venv depois, rode `deactivate`.
+
+## Rodando a visualização gráfica
+
+Com o venv ativado:
+
+```bash
 python3 maze.py
 ```
 
