@@ -1,25 +1,32 @@
 # -*- coding: utf-8 -*-
 """
-Algoritmos de busca: aleatória, DFS, BFS e A*.
+Algoritmos de busca: aleatória, DFS, BFS, Gulosa (heurística) e A*.
 
-Neste arquivo, a busca aleatória original foi mantida e a Busca
-Guiada por Heurística (Gulosa) foi adicionada para demonstrar o poder 
-de uma heurística na escolha do caminho mais promissor.
+Todos recebem (inicio, objetivo, vizinhos) e devolvem o mesmo formato:
+uma lista de estados (um dicionário por passo), que o maze.py anima.
 
-A estrutura de dados usada para guardar a fronteira na heurística é 
-uma fila de prioridade (heapq), que tira sempre o nó com menor valor 
-na heurística (Distância de Manhattan).
+A diferença entre eles é só QUAL nó da fronteira é expandido:
+  - aleatória .... sorteia um nó qualquer da fronteira (sem estratégia)
+  - dfs .......... pilha (LIFO): mergulha fundo até travar, depois volta
+  - bfs .......... fila (FIFO): expande em camadas, acha o caminho mais curto
+  - gulosa ....... fila de prioridade só pela heurística h(n) = Manhattan até o objetivo
+  - astar ........ fila de prioridade por f(n) = g(n) + h(n), onde g = custo até aqui
+
+A heurística usada é a distância de Manhattan (só anda em cruz, como no labirinto).
 """
 
-import random
 import heapq
 import itertools
+import random
+from collections import deque
 
 
 def heuristica(celula, objetivo):
     """
-    Heurística de Distância de Manhattan.
-    Calcula a distância em 'L' (apenas horizontal e vertical) entre a célula e o objetivo.
+    Distância de Manhattan entre celula e objetivo.
+
+    Funciona com qualquer unidade de coordenada (pixels ou grade),
+    porque só importa a ORDEM dos valores, não a escala.
     """
     return abs(celula[0] - objetivo[0]) + abs(celula[1] - objetivo[1])
 
@@ -70,6 +77,7 @@ def _expandir(estado, celula, objetivo, vizinhos, fronteira):
     2. se `celula` for o objetivo, monta o caminho e termina;
     3. senão, manda os vizinhos ainda não conhecidos pra fronteira.
     """
+
     estado["fronteira"].discard(celula)
     estado["visitados"].add(celula)
     estado["atual"] = celula
@@ -88,68 +96,132 @@ def _expandir(estado, celula, objetivo, vizinhos, fronteira):
         fronteira.append(viz)
 
 
-def busca(inicio, objetivo, vizinhos):
+def normalizar_algoritmo(nome):
+    """Aceita apelidos ("A*", "a_star", "heuristica"...) e devolve o nome canônico."""
+    n = str(nome).strip().lower().replace("_", "").replace("-", "").replace(" ", "")
+    if n in ("aleatoria", "aleatoriaa", "aleatória", "random", "rand"):
+        return "aleatoria"
+    if n in ("dfs", "profundidade", "pilha"):
+        return "dfs"
+    if n in ("bfs", "largura", "fila"):
+        return "bfs"
+    if n in ("gulosa", "guloso", "heuristica", "heurística", "greedy", "heuristic"):
+        return "gulosa"
+    if n in ("astar", "a*", "a", "star"):
+        return "astar"
+    raise ValueError(
+        f"algoritmo desconhecido: {nome!r} "
+        "(use 'aleatoria', 'dfs', 'bfs', 'gulosa' ou 'astar')"
+    )
+
+
+ALGORITMOS = ("aleatoria", "dfs", "bfs", "gulosa", "astar")
+
+DESCRICAO = {
+    "aleatoria": "Aleatória: sorteia da fronteira (sem heurística)",
+    "dfs": "DFS: pilha, mergulha fundo (sem heurística)",
+    "bfs": "BFS: fila em camadas, caminho mais curto (sem heurística)",
+    "gulosa": "Gulosa: só h(n) = Manhattan até o objetivo",
+    "astar": "A*: f(n) = g(n) + h(n), curto + eficiente",
+}
+
+
+def busca(inicio, objetivo, vizinhos, algoritmo="aleatoria"):
     """Roda a busca inteira e devolve o histórico: uma lista com um estado
     (dicionário) por passo, na ordem em que aconteceram.
     """
+    algoritmo = normalizar_algoritmo(algoritmo)
+
     estado = novo_estado()
     estado["fronteira"].add(inicio)
     estado["pai"][inicio] = None
     historico = []
 
-    # =================================================================
-    # ESCOLHA O ALGORITMO AQUI PARA A APRESENTAÇÃO:
-    # Digite "aleatoria" ou "heuristica"
-    ALGORITMO = "aleatoria" 
-    # =================================================================
-
-    if ALGORITMO == "aleatoria":
-        # BUSCA ALEATÓRIA (CEGA)
+    # ------------------------- buscas sem heurística -------------------------
+    if algoritmo == "aleatoria":
         fronteira = [inicio]
         while fronteira:
-            celula = random.choice(fronteira) 
+            celula = random.choice(fronteira)
             fronteira.remove(celula)
-            
             _expandir(estado, celula, objetivo, vizinhos, fronteira)
             historico.append(_copia_do_estado(estado))
-            
             if estado["encontrado"]:
                 return historico
 
-    elif ALGORITMO == "heuristica":
-        # BUSCA GULOSA (GUIADA PELA HEURÍSTICA DE MANHATTAN)
-        contador = itertools.count()
-        fronteira_prioridade = []
-        
-        heapq.heappush(fronteira_prioridade, (heuristica(inicio, objetivo), next(contador), inicio))
-
-        while fronteira_prioridade:
-            _, _, celula = heapq.heappop(fronteira_prioridade)
-
+    elif algoritmo == "dfs":
+        fronteira = [inicio]  # pilha: pop() tira o último = LIFO
+        while fronteira:
+            celula = fronteira.pop()
             if celula in estado["visitados"]:
                 continue
+            _expandir(estado, celula, objetivo, vizinhos, fronteira)
+            historico.append(_copia_do_estado(estado))
+            if estado["encontrado"]:
+                return historico
 
+    elif algoritmo == "bfs":
+        fronteira = deque([inicio])  # fila: popleft() tira o mais antigo = FIFO
+        while fronteira:
+            celula = fronteira.popleft()
+            if celula in estado["visitados"]:
+                continue
+            _expandir(estado, celula, objetivo, vizinhos, fronteira)
+            historico.append(_copia_do_estado(estado))
+            if estado["encontrado"]:
+                return historico
+
+    # ------------------------- buscas com heurística -------------------------
+    elif algoritmo == "gulosa":
+        contador = itertools.count()
+        heap = [(heuristica(inicio, objetivo), next(contador), inicio)]
+        while heap:
+            _, _, celula = heapq.heappop(heap)
+            if celula in estado["visitados"]:
+                continue
             estado["fronteira"].discard(celula)
             estado["visitados"].add(celula)
             estado["atual"] = celula
             estado["passos"] += 1
-
             if celula == objetivo:
                 estado["encontrado"] = True
                 estado["caminho"] = _reconstruir_caminho(estado["pai"], objetivo)
                 historico.append(_copia_do_estado(estado))
                 return historico
-
             for viz in vizinhos(celula):
                 if viz in estado["visitados"] or viz in estado["fronteira"]:
                     continue
-                
                 estado["pai"][viz] = celula
                 estado["fronteira"].add(viz)
-                
-                prioridade = heuristica(viz, objetivo)
-                heapq.heappush(fronteira_prioridade, (prioridade, next(contador), viz))
+                heapq.heappush(heap, (heuristica(viz, objetivo), next(contador), viz))
+            historico.append(_copia_do_estado(estado))
 
+    elif algoritmo == "astar":
+        contador = itertools.count()
+        g = {inicio: 0}  # custo do início até cada célula
+        heap = [(heuristica(inicio, objetivo), next(contador), inicio)]
+        while heap:
+            _, _, celula = heapq.heappop(heap)
+            if celula in estado["visitados"]:
+                continue
+            estado["fronteira"].discard(celula)
+            estado["visitados"].add(celula)
+            estado["atual"] = celula
+            estado["passos"] += 1
+            if celula == objetivo:
+                estado["encontrado"] = True
+                estado["caminho"] = _reconstruir_caminho(estado["pai"], objetivo)
+                historico.append(_copia_do_estado(estado))
+                return historico
+            for viz in vizinhos(celula):
+                novo_g = g[celula] + 1
+                if viz in estado["visitados"] and novo_g >= g.get(viz, float("inf")):
+                    continue
+                if viz not in estado["fronteira"] or novo_g < g.get(viz, float("inf")):
+                    estado["pai"][viz] = celula
+                    g[viz] = novo_g
+                    estado["fronteira"].add(viz)
+                    f = novo_g + heuristica(viz, objetivo)
+                    heapq.heappush(heap, (f, next(contador), viz))
             historico.append(_copia_do_estado(estado))
 
     estado["falhou"] = True
@@ -158,8 +230,8 @@ def busca(inicio, objetivo, vizinhos):
 
 
 if __name__ == "__main__":
-    # Demonstração em modo texto, sem pygame: mostra a busca resolvendo 
-    # um labirinto pequeno, passo a passo, no terminal.
+    # Demonstração em modo texto, sem pygame: resolve um labirinto pequeno
+    # com CADA algoritmo e compara (ótimo pra apresentação sobre heurística).
     grade_exemplo = [
         "#########",
         "#S..#...#",
@@ -196,16 +268,13 @@ if __name__ == "__main__":
     for linha in grade_exemplo:
         print(" ", linha)
     print()
-
-    historico = busca(inicio, objetivo, vizinhos_exemplo)
-    for estado in historico:
-        print(f"passo {estado['passos']:2d}: atual={estado['atual']}  "
-              f"fronteira={len(estado['fronteira']):2d}  visitados={len(estado['visitados']):2d}")
-
-    print()
-    estado_final = historico[-1]
-    if estado_final["encontrado"]:
-        print(f"Achou o objetivo em {estado_final['passos']} passos "
-              f"(caminho com {len(estado_final['caminho'])} células).")
-    else:
-        print("Não achou o objetivo.")
+    print(f"{'algoritmo':<10} {'passos':>7} {'caminho':>8}")
+    print("-" * 28)
+    random.seed(0)
+    for algo in ALGORITMOS:
+        hist = busca(inicio, objetivo, vizinhos_exemplo, algoritmo=algo)
+        fim = hist[-1]
+        if fim["encontrado"]:
+            print(f"{algo:<10} {fim['passos']:>7} {len(fim['caminho']):>8}")
+        else:
+            print(f"{algo:<10} {'falhou':>7} {'--':>8}")

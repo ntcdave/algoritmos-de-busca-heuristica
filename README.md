@@ -1,7 +1,8 @@
 # Algoritmos de Busca
 
 Visualizador de algoritmos de busca em labirinto, feito para aulas de IA.
-Só a **busca aleatória** está implementada.
+Os 5 algoritmos (**aleatória, BFS, DFS, Gulosa e A\***) estão implementados —
+na janela gráfica dá pra trocar entre eles com as teclas **1–5**, sem editar código.
 
 O código é dividido em três arquivos, cada um com uma responsabilidade só,
 justamente para separar "o que é algoritmo de busca" de "o que é só
@@ -33,14 +34,17 @@ lista, item por item.
 python3 busca.py
 ```
 
-Isso resolve um labirinto pequeno de exemplo com a busca aleatória e
-imprime o progresso passo a passo no terminal:
+Isso resolve o labirinto de exemplo com **cada um dos 5 algoritmos** e
+imprime o comparativo no terminal:
 
 ```
-passo  1: atual=(1, 1)  fronteira= 2  visitados= 1
-passo  2: atual=(1, 2)  fronteira= 2  visitados= 2
-...
-Achou o objetivo em 26 passos (caminho com 12 células).
+algoritmo   passos  caminho
+----------------------------
+aleatoria       16       12
+dfs             25       16
+bfs             24       12
+gulosa          13       12
+astar           19       12
 ```
 
 ## Instalação (com venv)
@@ -78,19 +82,39 @@ python3 maze.py
 
 | Tecla | Ação |
 |---|---|
-| `R` | Reinicia a busca |
+| `1`–`5` | Troca o algoritmo (1 Aleatória, 2 BFS, 3 DFS, 4 Gulosa, 5 A*) |
+| `ESPAÇO` | Pausa / continua |
+| `←` / `→` | Passo a passo (pausado) |
 | `+` / `-` | Aumenta/diminui a velocidade |
-| `ESC` | Sai |
+| `H` | Liga/desliga o mapa de calor da heurística + linha-guia |
+| `C` | Comparativo: roda os 5 algoritmos e mostra o placar |
+| `M` | Modo jogável: você foge com setas/WASD e compara com a IA |
+| `R` | Reinicia a busca (a aleatória embaralha de novo) |
+| `ESC` | Fecha overlay / sai |
+
+Também dá pra clicar nos algoritmos, nos botões e arrastar a barra de progresso.
 
 ### Legenda de cores
 
 - **Branco** — parede
-- **Azul claro** — início
-- **Vermelho** — objetivo
+- **Azul (S)** — início
+- **Vermelho (alvo)** — objetivo
 - **Azul escuro** — célula já visitada (nó "fechado")
-- **Amarelo** — célula na fronteira (nó "aberto": conhecido, mas ainda não expandido)
+- **Amarelo** — célula na fronteira (nó "aberto"); quanto mais viva, menor o `h`
+- **Anel branco** — melhor palpite da fronteira (menor `h`)
+- **Tracejado rosa** — linha-guia do "atual" até o objetivo (a direção do palpite)
+- **Fundo quente** — mapa de calor de `h` (Manhattan ignorando paredes)
 - **Laranja** — célula sendo expandida neste exato passo
-- **Verde** — caminho final, desenhado quando o objetivo é encontrado
+- **Verde** — caminho final, revelado aos poucos quando o objetivo é encontrado
+
+### Roteiro sugerido pra apresentação (sobre heurísticas)
+
+1. Comece no **A\*** (`5`) com o calor ligado (`H`): mostre o fundo quente,
+   a fronteira que "aponta" pro objetivo e a linha-guia.
+2. Aperte **`C`** e mostre o placar: BFS visita ~160 células pro caminho 33,
+   a Gulosa visita ~60 mas erra o caminho (35), e o **A\* visita ~60 e acerta
+   o 33** — o melhor dos dois mundos.
+3. Aperte **`M`** e deixe alguém da plateia tentar fugir no manual.
 
 ## Os algoritmos
 
@@ -115,6 +139,14 @@ guarda a fronteira:
   mas geralmente visitando bem menos células que a BFS, porque prioriza
   nós que parecem estar mais perto do objetivo.
 
+Pra trocar de algoritmo no código, passe o nome pra `busca()`:
+
+```python
+busca(INICIO, OBJETIVO, vizinhos, algoritmo="astar")  # "aleatoria", "dfs", "bfs", "gulosa" ou "astar"
+```
+
+Na janela gráfica é só apertar `1`–`5` (ou clicar na lista da direita).
+
 ## Estrutura interna (o estado e o histórico)
 
 `busca(inicio, objetivo, vizinhos)` roda o algoritmo do início ao fim e
@@ -129,7 +161,8 @@ as chaves:
 - `estado["encontrado"]` / `estado["falhou"]` — se a busca já tinha terminado, e como
 - `estado["caminho"]` — lista de células do início ao objetivo (preenchida a partir do passo em que `encontrado=True`)
 
-`maze.py` guarda essa lista inteira (`historico`) e um índice (`indice`).
-A cada frame ele só avança o índice em 1 e desenha `historico[indice]` — não
+`maze.py` guarda essa lista inteira (`historico`, convertida pra coordenadas
+de grade) e um índice (`indice`).
+A cada frame ele só avança o índice e desenha `historico[indice]` — não
 faz nenhuma decisão de busca, só olha a "foto" daquele passo e pinta os
 quadrados correspondentes na tela.
